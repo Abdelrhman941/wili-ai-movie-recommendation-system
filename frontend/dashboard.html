@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wili Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <div class="nav-left">
+                <h1>🎬 Wili</h1>
+            </div>
+            <div class="nav-right">
+                <span style="margin-right: 20px; color: #666;">
+                    Welcome, <strong id="usernameDisplay"></strong>
+                </span>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div id="alert" class="alert"></div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('wili')">
+                Would I Like It?
+            </button>
+            <button class="tab" onclick="switchTab('recommendations')">
+                Get Recommendations
+            </button>
+        </div>
+        
+        <!-- Tab 1: Wili Check (Use Case A) -->
+        <div id="wiliTab" class="tab-content active">
+            <h2>Would I Like This Movie?</h2>
+            <p class="subtitle">Enter a movie title to see if you'd like it based on your preferences</p>
+            
+            <form id="wiliForm">
+                <div class="form-group">
+                    <label for="movieTitle">Movie Title</label>
+                    <input type="text" id="movieTitle" placeholder="e.g., Inception, The Matrix" required>
+                </div>
+                
+                <button type="submit">WILI !</button>
+            </form>
+            
+            <div id="wiliResult"></div>
+        </div>
+        
+        <!-- Tab 2: Recommendations (Use Case B) -->
+        <div id="recommendationsTab" class="tab-content">
+            <h2>Get Movie Recommendations</h2>
+            <p class="subtitle">Describe what you're looking for and we'll find the perfect matches</p>
+            
+            <form id="recommendationsForm">
+                <div class="form-group">
+                    <label for="prompt">What are you looking for?</label>
+                    <textarea id="prompt" rows="3" 
+                        placeholder="e.g., I want a movie similar to Blade Runner in vibe, something dark and futuristic" 
+                        required></textarea>
+                </div>
+                
+                <div class="filters">
+                    <div class="form-group">
+                        <label for="minRating">Minimum Rating</label>
+                        <input type="number" id="minRating" min="0" max="10" step="0.1" 
+                            placeholder="e.g., 7.0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="minYear">Minimum Year</label>
+                        <input type="text" id="minYear" placeholder="e.g., 2000">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="genre">Genre</label>
+                        <input type="text" id="genre" placeholder="e.g., sci-fi, drama">
+                    </div>
+                </div>
+                
+                <button type="submit">Get Recommendations</button>
+            </form>
+            
+            <div id="recommendationsResult"></div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Processing your request...</p>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
