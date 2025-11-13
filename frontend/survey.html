@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey - Wili</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <div class="nav-left">
+                <h1>🎬 Movie Preference Survey</h1>
+            </div>
+            <div class="nav-right">
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div id="alert" class="alert"></div>
+        
+        <div class="progress-container">
+            <p>Select movies you've seen and liked (<span id="selectedCount">0</span>/10)</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+        </div>
+        
+        <div id="surveyContent">
+            <p class="subtitle">Click on movies you've seen and liked. Click "Next" to see more options.</p>
+            
+            <div id="moviesGrid" class="movies-grid"></div>
+            
+            <div style="display: flex; gap: 15px; margin-top: 30px;">
+                <button id="nextBtn" onclick="loadNextMovies()" class="btn-secondary" style="flex: 1;">
+                    Next Movies
+                </button>
+                <button id="submitBtn" onclick="submitSurvey()" style="flex: 1;" disabled>
+                    Complete Survey
+                </button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading movies...</p>
+        </div>
+        
+        <div id="processingEmbedding" class="loading">
+            <div class="spinner"></div>
+            <p>Computing your personalized embedding...</p>
+        </div>
+    </div>
+    
+    <script src="js/auth.js"></script>
+    <script src="js/survey.js"></script>
+</body>
+</html>

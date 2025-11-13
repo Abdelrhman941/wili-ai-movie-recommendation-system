@@ -1,0 +1,149 @@
+import aiohttp
+import asyncio
+import pandas as pd
+import json
+import random
+import time
+from bs4 import BeautifulSoup
+import re
+
+# Load CSV
+input_file = "movies_dataset.csv"
+output_csv = "movies_updated.csv"
+output_json = "movies_reviews.json"
+
+df = pd.read_csv(input_file)
+
+# IMDb URLs
+IMDB_MOVIE_URL = "https://www.imdb.com/title/{}/"
+IMDB_REVIEW_URL = "https://www.imdb.com/title/{}/reviews"
+
+# Headers to mimic a real browser
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+}
+
+# Dictionary to store reviews
+movies_reviews = {"movies": []}
+
+async def fetch_url(session, url, retries=3):
+    """Fetch a URL with retry on failure and random sleep."""
+    for attempt in range(retries):
+        try:
+            await asyncio.sleep(1)  # Random delay to avoid detection
+            async with session.get(url, headers=HEADERS) as response:
+                if response.status == 200:
+                    return await response.text()
+                elif response.status == 403:
+                    print(f"Blocked (403) at {url}")
+                    return "BLOCKED"
+        except Exception as e:
+            print(f"Retry {attempt + 1}: {e}")
+        await asyncio.sleep(5)
+    return None
+
+
+async def get_movie_details(imdb_id, session):
+    """Fetch movie details asynchronously."""
+    url = IMDB_MOVIE_URL.format(imdb_id)
+    html = await fetch_url(session, url)
+    if html == "BLOCKED":
+        return "BLOCKED"
+    if not html:
+        return {}
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Extract elements safely
+    synopsis_element = soup.select_one("div.ipc-html-content-inner-div")
+    rating_element = soup.select_one("span.sc-d541859f-1.imUuxf")
+    count_element = soup.select_one("div.sc-d541859f-3.dwhNqC")
+    tagline_element = soup.select_one("span.sc-42125d72-0.gKbnVu")
+
+    return {
+        "Synopsis": synopsis_element.get_text(strip=True) if synopsis_element else "N/A",
+        "Weighted Average Rating": rating_element.get_text(strip=True) if rating_element else "N/A",
+        "Weighted Average Count": count_element.get_text(strip=True) if count_element else "N/A",
+        "Tagline": tagline_element.get_text(strip=True) if tagline_element else "N/A"
+    }
+
+
+async def get_imdb_reviews(imdb_id, session):
+    """Fetch IMDb reviews asynchronously."""
+    url = IMDB_REVIEW_URL.format(imdb_id)
+    html = await fetch_url(session, url)
+    if html == "BLOCKED":
+        return "BLOCKED"
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, "html.parser")
+    review_containers = soup.find_all("div", class_="ipc-list-card__content")
+    reviews = []
+    for i, review in enumerate(review_containers[:5]):
+        comment_text = review.text.strip()
+        comment_text = re.sub(r"^\d+/\d+\s*", "", comment_text)
+        reviews.append({"review_id": f"{imdb_id}{i+1}", "comment": comment_text})
+    return reviews
+
+async def process_movies():
+    """Process movies in adaptive batch sizes with saving every 100 movies."""
+    async with aiohttp.ClientSession() as session:
+        batch_size = 5  # Start small and increase gradually
+        max_batch_size = 10
+        total_movies = len(df)
+        blocked_batches = 0
+
+        for start in range(0, total_movies, batch_size):
+            tasks, imdb_ids = [], []
+            for i in range(start, min(start + batch_size, total_movies)):
+                imdb_id = df.at[i, "IMDb ID"]
+                if pd.isna(imdb_id):
+                    continue
+                imdb_ids.append(imdb_id)
+                tasks.append(get_movie_details(imdb_id, session))
+                tasks.append(get_imdb_reviews(imdb_id, session))
+
+            if not tasks:
+                continue
+
+            results = await asyncio.gather(*tasks)
+            batch_blocked = False
+
+            for idx, (movie_details, reviews) in enumerate(zip(results[::2], results[1::2])):
+                i = start + idx
+                imdb_id = imdb_ids[idx]
+
+                if movie_details == "BLOCKED" or reviews == "BLOCKED":
+                    batch_blocked = True
+                    print(f"⚠️ Batch {start // batch_size + 1} contains blocked requests!")
+                    continue
+
+                df.at[i, "Synopsis"] = str(movie_details.get("Synopsis", "N/A"))
+                df.at[i, "Tagline"] = str(movie_details.get("Tagline", "N/A"))
+
+                rating_str = movie_details.get("Weighted Average Rating", "N/A")
+                df.at[i, "Weighted Average Rating"] = float(rating_str) if rating_str.replace(".","").isdigit() else None
+
+                count_str = movie_details.get("Weighted Average Count", "N/A").replace(",", "")
+                df.at[i, "Weighted Average Count"] = int(count_str) if count_str.isdigit() else None
+
+                if reviews:
+                    movies_reviews["movies"].append({"movie_id": imdb_id, "reviews": reviews})
+
+            if batch_blocked:
+                blocked_batches += 1
+                batch_size = max(5, batch_size - 1)  # Decrease batch size if blocked
+            else:
+                batch_size = min(max_batch_size, batch_size + 1)  # Increase batch size if no issues
+
+            if (start + batch_size) % 100 == 0 or start + batch_size >= total_movies:
+                df.to_csv(output_csv, index=False)
+                with open(output_json, "w", encoding="utf-8") as json_file:
+                    json.dump(movies_reviews, json_file, indent=4, ensure_ascii=False)
+                print(f"✅ Saved progress at {start + batch_size} movies.")
+
+        print("✅ Process complete.")
+
+# Run the asynchronous event loop
+asyncio.run(process_movies())
